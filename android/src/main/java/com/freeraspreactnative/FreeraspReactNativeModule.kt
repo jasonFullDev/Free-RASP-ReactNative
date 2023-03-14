@@ -12,9 +12,17 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 
 class FreeraspReactNativeModule(val reactContext: ReactApplicationContext) :
-  ReactContextBaseJavaModule(reactContext), ThreatListener.ThreatDetected, FreeraspDeviceStateListener.DeviceStateListener {
+  ReactContextBaseJavaModule(reactContext), ThreatListener.ThreatDetected {
 
-  private val listener = ThreatListener(this, FreeraspDeviceStateListener)
+  private val deviceStateListener = object : ThreatListener.DeviceState {
+    override fun onUnlockedDeviceDetected() {
+      sendOngoingPluginResult("passcode", null)
+    }
+
+    override fun onHardwareBackedKeystoreNotAvailableDetected() {
+      sendOngoingPluginResult("secureHardwareNotAvailable", null)
+    }
+  }
 
   override fun getName(): String {
     return NAME
@@ -27,8 +35,7 @@ class FreeraspReactNativeModule(val reactContext: ReactApplicationContext) :
 
     try {
       val config = parseTalsecConfig(options)
-      FreeraspDeviceStateListener.listener = this
-      listener.registerListener(reactContext)
+      ThreatListener(this, deviceStateListener).registerListener(reactContext)
       Talsec.start(reactContext, config)
       sendOngoingPluginResult("started", null)
 
@@ -76,10 +83,6 @@ class FreeraspReactNativeModule(val reactContext: ReactApplicationContext) :
 
   override fun onDeviceBindingDetected() {
     sendOngoingPluginResult("device binding", null)
-  }
-
-  override fun deviceStateChangeDetected(threatType: String) {
-    sendOngoingPluginResult(threatType, null)
   }
 
   private fun sendOngoingPluginResult(eventName: String, params: WritableMap?) {
